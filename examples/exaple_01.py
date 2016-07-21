@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 import numpy
 import itf_barcode_reader as barcode_reader
