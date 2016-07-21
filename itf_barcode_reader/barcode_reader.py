@@ -1,4 +1,5 @@
 import numpy
+import pylab
 import scipy.ndimage
 
 
@@ -61,7 +62,7 @@ def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
     return tokens
 
 
-def parse_token(ls):
+def parse_tokens(ls):
     vs = ''.join([t[3] for t in ls])
     if vs[:4] != 'nnnn':
         print vs0
@@ -87,3 +88,9 @@ def parse_token(ls):
         v.append(lookup_char(''.join(vs[s:e:2])))
         v.append(lookup_char(''.join(vs[s+1:e:2])))
     return v
+
+
+def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False):
+    tokens = parse_linescan(bcd, lpn, length_threshold, use_mean)
+    bcd_val = parse_tokens(tokens)
+    return bcd_val
