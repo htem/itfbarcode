@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import numpy
-import pylab
 import scipy.ndimage
+
 
 # Numberical values for narrow/wide lines
 chars = {
@@ -22,8 +22,9 @@ chars = {
 def lookup_char(char):
     return chars.get(char, -1)
 
-# Parse given array for narrow/wide lines
+
 def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
+    """Parse given array for narrow/wide lines"""
     # filter to find threshold
     if use_mean:
         fvs = numpy.ones(lpn) * vs.mean()
@@ -58,13 +59,11 @@ def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
             tokens[i][3] = 'W'
         else:
             tokens[i][3] = 'n'
-        pylab.text(
-            tokens[i][1] + tokens[i][2] / 2, fvs[tokens[i][1]], tokens[i][3])
     # return a list of narrow/wides as [0, 1]
     return tokens
 
-# Take narrow/wide lines from parse_linescan and return barcode value
 def parse_tokens(ls):
+    """Take narrow/wide lines from parse_linescan and return barcode value"""
     vs = ''.join([t[3] for t in ls])
     if vs[:4] != 'nnnn':
         print vs0

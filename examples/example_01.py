@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import numpy
-import itf_barcode_reader as barcode_reader
+import itfbarcode 
 
 # Array of test barcode
 test_barcode_array = numpy.array(
@@ -53,6 +53,6 @@ if __name__ == '__main__':
     """Use barcode reader to parse array for ITF barcode value. Changed
        length_threshold to 1 for better parsing of an array with smaller
        barcode lines"""
-    barcode = barcode_reader.read_barcode(test_barcode_array,
-                                          length_threshold=1)
+    barcode = itfbarcode.read_barcode(
+        test_barcode_array, length_threshold=1)
     print "Barcode is: {}".format(barcode)
