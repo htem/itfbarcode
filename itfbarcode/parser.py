@@ -31,8 +31,13 @@ def lookup_char(char):
     return chars.get(char, -1)
 
 
-def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
-    """Parse given array for narrow/wide lines"""
+def parse_linescan(
+        vs, lpn=101, length_threshold=5, use_mean=False, full=False):
+    """Parse given array for narrow/wide lines
+
+    lpn = width of smoothing filter
+    length_threshold = minimum bar/space width
+    """
     # filter to find threshold
     if use_mean:
         fvs = numpy.ones(lpn) * vs.mean()
@@ -41,8 +46,6 @@ def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
             vs, numpy.ones(lpn, dtype='f8') / lpn, mode='reflect')
     # binarize
     b = vs > fvs
-    maxv = vs.max()
-    minv = vs.min()
     # count how long highs and lows are
     start = None
     state = b[0]
@@ -67,12 +70,23 @@ def parse_linescan(vs, lpn=101, length_threshold=5, use_mean=False):
             tokens[i][3] = 'W'
         else:
             tokens[i][3] = 'n'
+    if full:
+        return (
+            tokens,
+            {
+                'tokens': tokens,
+                'bar_threshold': tt,
+                'space_threshold': tf,
+            })
     # return a list of narrow/wides as [0, 1]
     return tokens
+
 
 def parse_tokens(ls):
     """Take narrow/wide lines from parse_linescan and return barcode value"""
     vs = ''.join([t[3] for t in ls])
+    if vs[:4] != 'nnnn':
+        vs = vs[::-1]  # first try reversing
     if vs[:4] != 'nnnn':
         return -1  # no start code
     if vs[-3:] != 'Wnn':
@@ -95,9 +109,18 @@ def parse_tokens(ls):
     return v
 
 
-def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False):
+def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False, full=False):
     if len(bcd) == 0:
         return -5  # invalid input
-    tokens = parse_linescan(bcd, lpn, length_threshold, use_mean)
+    r = parse_linescan(bcd, lpn, length_threshold, use_mean, full=full)
+    if full:
+        tokens, info = r
+    else:
+        tokens = r
     bcd_val = parse_tokens(tokens)
-    return bcd_val
+    if full:
+        return bcd_val, info
+
+
+def is_valid(bc):
+    return isinstance(bc, list) and not any((b == -1 for b in bc))
