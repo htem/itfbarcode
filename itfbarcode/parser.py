@@ -123,4 +123,4 @@ def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False, full=False):
 
 
 def is_valid(bc):
-    return isinstance(bc, list) and not any((b == -1 for b in bc))
+    return isinstance(bc, list) and not any((b < 0 for b in bc))
