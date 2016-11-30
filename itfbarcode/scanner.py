@@ -6,7 +6,8 @@ from . import parser
 
 
 def scan_image_y(
-        im, start_x=None, end_x=None, y=None, scan_range=None, **kwargs):
+        im, start_x=None, end_x=None, y=None, scan_range=None,
+        require_n=3, **kwargs):
     if start_x is None:
         start_x = 0
     if end_x is None:
@@ -20,11 +21,16 @@ def scan_image_y(
     full = kwargs.get('full', False)
     dy = 0
     bc = 0
+    bcs = []
     while not parser.is_valid(bc) and dy < scan_range:
         bc = parser.read_barcode(im[y + dy, start_x:end_x], **kwargs)
         if full:
             bc, info = bc
             info['y'] = y + dy
+        if parser.is_valid(bc):
+            bcs.append(bc)
+        if bcs.count(bc) < require_n:
+            bc = 0
         dy += 1
     dy = 1
     while not parser.is_valid(bc) and dy < scan_range:
@@ -32,14 +38,20 @@ def scan_image_y(
         if full:
             bc, info = bc
             info['y'] = y + dy
+        if parser.is_valid(bc):
+            bcs.append(bc)
+        if bcs.count(bc) < require_n:
+            bc = 0
         dy += 1
     if full:
+        info['bcs'] = bcs
         return bc, info
     return bc
 
 
 def scan_image_x(
-        im, start_y=None, end_y=None, x=None, scan_range=None, **kwargs):
+        im, start_y=None, end_y=None, x=None, scan_range=None,
+        require_n=3, **kwargs):
     if start_y is None:
         start_y = 0
     if end_y is None:
@@ -53,11 +65,16 @@ def scan_image_x(
     full = kwargs.get('full', False)
     dx = 0
     bc = 0
+    bcs = []
     while not parser.is_valid(bc) and dx < scan_range:
         bc = parser.read_barcode(im[start_y:end_y, x + dx], **kwargs)
         if full:
             bc, info = bc
             info['x'] = x + dx
+        if parser.is_valid(bc):
+            bcs.append(bc)
+        if bcs.count(bc) < require_n:
+            bc = 0
         dx += 1
     dx = 1
     while not parser.is_valid(bc) and dx < scan_range:
@@ -65,7 +82,12 @@ def scan_image_x(
         if full:
             bc, info = bc
             info['x'] = x + dx
+        if parser.is_valid(bc):
+            bcs.append(bc)
+        if bcs.count(bc) < require_n:
+            bc = 0
         dx += 1
     if full:
+        info['bcs'] = bcs
         return bc, info
     return bc
