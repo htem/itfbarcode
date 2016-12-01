@@ -18,6 +18,8 @@ chars = {
     'nWnWn': 9,
 }
 
+rchars = {chars[k]: k for k in chars}
+
 errors = {
     -1: 'missing start code',
     -2: 'missing end code',
@@ -27,8 +29,27 @@ errors = {
 }
 
 
+default_bar_info = {
+    'bar': {
+        'n': 1,
+        'w': 1.8,
+    },
+    'space': {
+        'n': 0.1,
+        'w': 1.25,
+    }
+}
+
+
 def lookup_char(char):
     return chars.get(char, -1)
+
+
+def parse_line(vs, ndigits=6, bar_info=None):
+    if bar_info is None:
+        bar_info = default_bar_info
+    nvs = len(vs)
+    pass
 
 
 def parse_linescan(
@@ -40,7 +61,7 @@ def parse_linescan(
     """
     # filter to find threshold
     if use_mean:
-        fvs = numpy.ones(lpn) * vs.mean()
+        fvs = numpy.ones_like(vs) * vs.mean()
     else:
         fvs = scipy.ndimage.convolve1d(
             vs, numpy.ones(lpn, dtype='f8') / lpn, mode='reflect')
@@ -84,7 +105,10 @@ def parse_linescan(
 
 def parse_tokens(ls):
     """Take narrow/wide lines from parse_linescan and return barcode value"""
-    vs = ''.join([t[3] for t in ls])
+    if isinstance(ls, (str, unicode)):
+        vs = ls
+    else:
+        vs = ''.join([t[3] for t in ls])
     if vs[:4] != 'nnnn':
         vs = vs[::-1]  # first try reversing
     if vs[:4] != 'nnnn':
@@ -120,7 +144,37 @@ def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False, full=False):
     bcd_val = parse_tokens(tokens)
     if full:
         return bcd_val, info
+    return bcd_val
 
 
 def is_valid(bc):
     return isinstance(bc, list) and not any((b < 0 for b in bc))
+
+
+def gen_tokens(v, ndigits=None):
+    if isinstance(v, (str, unicode)):
+        ndigits = len(v)
+        v = int(v)
+    if ndigits is None:
+        raise ValueError("ndigits must be defined")
+    if (ndigits % 2):
+        raise ValueError("ndigits must be even: %s" % ndigits)
+    sc = 'nnnn'
+    ec = 'Wnn'
+    s = sc
+    vc = str(v).zfill(ndigits)
+    for i in xrange(ndigits / 2):
+        c0 = rchars[int(vc[2*i])]  # bars
+        c1 = rchars[int(vc[2*i+1])]  # spaces
+        for (j0, j1) in zip(c0, c1):
+            s += j0
+            s += j1
+    s += ec
+    return s
+
+
+def test():
+    ts = 'nnnnnnnnWWWWnnnnnnWWWWnnnnWWnnnWWnWnn'
+    v = '000029'
+    assert ''.join([str(i) for i in parse_tokens(ts)]) == v
+    assert gen_tokens(v) == ts
