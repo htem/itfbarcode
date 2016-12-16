@@ -109,12 +109,23 @@ def parse_tokens(ls):
         vs = ls
     else:
         vs = ''.join([t[3] for t in ls])
-    if vs[:4] != 'nnnn':
-        vs = vs[::-1]  # first try reversing
-    if vs[:4] != 'nnnn':
+    if 'nnnn' not in vs:
         return -1  # no start code
-    if vs[-3:] != 'Wnn':
+    i = vs.index('nnnn')
+    if i > len(vs) / 2:
+        vs = vs[::-1]
+        i = vs.index('nnnn')
+    vs = vs[i:]
+    #if vs[:4] != 'nnnn':
+    #    vs = vs[::-1]  # first try reversing
+    #if vs[:4] != 'nnnn':
+    #    return -1  # no start code
+    #if vs[-3:] != 'Wnn':
+    #    return -2  # no end code
+    if 'Wnn' not in vs:
         return -2  # no end code
+    i = vs[::-1].index('nnW')  # find last end code
+    vs = vs[:len(vs)-i]
     vs = vs[4:-3]
     c, r = divmod(len(vs), 5)
     if r != 0:
