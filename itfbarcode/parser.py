@@ -3,19 +3,48 @@
 import numpy
 import scipy.ndimage
 
+from .objects import Barcode
+
+
+wide_chars = 'SB'
+narrow_chars = 'sb'
+
+start_code = 'bsbs'
+end_code = 'Bsb'
+
 
 # Numberical values for narrow/wide lines
 chars = {
-    'nnWWn': 0,
-    'WnnnW': 1,
-    'nWnnW': 2,
-    'WWnnn': 3,
-    'nnWnW': 4,
-    'WnWnn': 5,
-    'nWWnn': 6,
-    'nnnWW': 7,
-    'WnnWn': 8,
-    'nWnWn': 9,
+    'bbBBb': '0',
+    'ssSSs': '0',
+    'nnWWn': '0',
+    'BbbbB': '1',
+    'SsssS': '1',
+    'WnnnW': '1',
+    'bBbbB': '2',
+    'sSssS': '2',
+    'nWnnW': '2',
+    'BBbbb': '3',
+    'SSsss': '3',
+    'WWnnn': '3',
+    'bbBbB': '4',
+    'ssSsS': '4',
+    'nnWnW': '4',
+    'BbBbb': '5',
+    'SsSss': '5',
+    'WnWnn': '5',
+    'bBBbb': '6',
+    'sSSss': '6',
+    'nWWnn': '6',
+    'bbbBB': '7',
+    'sssSS': '7',
+    'nnnWW': '7',
+    'BbbBb': '8',
+    'SssSs': '8',
+    'WnnWn': '8',
+    'bBbBb': '9',
+    'sSsSs': '9',
+    'nWnWn': '9',
 }
 
 rchars = {chars[k]: k for k in chars}
@@ -43,13 +72,6 @@ default_bar_info = {
 
 def lookup_char(char):
     return chars.get(char, -1)
-
-
-def parse_line(vs, ndigits=6, bar_info=None):
-    if bar_info is None:
-        bar_info = default_bar_info
-    nvs = len(vs)
-    pass
 
 
 def parse_linescan(
@@ -189,3 +211,105 @@ def test():
     v = '000029'
     assert ''.join([str(i) for i in parse_tokens(ts)]) == v
     assert gen_tokens(v) == ts
+
+
+def find_token_threshold(tokens, state):
+    vs = [t.width for t in tokens if t.state == state]
+    return numpy.mean(vs)
+
+
+def tokens_to_string(
+        tokens, bar_threshold, space_threshold, max_bar, max_space):
+    ts = [space_threshold, bar_threshold]
+    ms = [max_space, max_bar]
+    s = ''
+    for t in tokens:
+        if t.width > ms[t.state]:
+            s += '?'
+        else:
+            if t.width > ts[t.state]:
+                s += wide_chars[t.state]
+            else:
+                s += narrow_chars[t.state]
+    return s
+
+
+def find_all_substring(st, substring):
+    i = st.find(substring)
+    inds = []
+    while i != -1:
+        inds.append(i)
+        ni = st[i+1:].find(substring)
+        if ni == -1:
+            break
+        i += ni + 1
+    return inds
+
+
+def string_to_value(bcs):
+    if not all([s.lower() == 'b' for s in bcs[::2]]):
+        return -1
+    if not all([s.lower() == 's' for s in bcs[1::2]]):
+        return -1
+    if len(bcs) % 10 != 0:
+        return -1
+    nc = len(bcs) // 10
+    chars = ''
+    for i in xrange(nc):
+        s = i * 10
+        e = s + 10
+        bc = lookup_char(bcs[s:e:2])
+        sc = lookup_char(bcs[s+1:e:2])
+        if bc < 0 or sc < 0:
+            return -1
+        chars += bc + sc
+    return int(chars)
+
+
+def find_all_barcode_bounds(st, ndigits=None):
+    if ndigits is None:
+        check_digits = lambda nt: True
+    else:
+        check_digits = lambda nt: ((nt / 10) == (ndigits / 2))
+    starts = find_all_substring(st, start_code)
+    ends = find_all_substring(st, end_code)
+    bcs = []
+    for s in starts:
+        for e in ends:
+            if e < s:
+                continue
+            si = s + len(start_code)
+            ei = e
+            nt = ei - si
+            if nt % 10 != 0:
+                # barcode has invalid # of tokens
+                continue
+            if not check_digits(nt):
+                # barcode has invalid # of digits
+                continue
+            bcs.append((s, e+len(end_code)))
+    return bcs
+
+
+def tokens_to_barcodes(
+        tokens, bar_threshold=None, space_threshold=None,
+        max_bar=None, max_space=None, ndigits=None):
+    if bar_threshold is None:
+        bar_threshold = find_token_threshold(tokens, 1)
+    if max_bar is None:
+        max_bar = bar_threshold * 3.
+    if space_threshold is None:
+        space_threshold = find_token_threshold(tokens, 0)
+    if max_space is None:
+        max_space = space_threshold * 3.
+    # convert tokens to barcode string
+    st = tokens_to_string(
+        tokens, bar_threshold, space_threshold, max_bar, max_space)
+    bounds = find_all_barcode_bounds(st, ndigits=ndigits)
+    bcs = []
+    for bound in bounds:
+        s, e = bound
+        value = string_to_value(st[s+len(start_code):e-len(end_code)])
+        if value > -1:
+            bcs.append(Barcode(value, tokens[s:e]))
+    return bcs
