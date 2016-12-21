@@ -58,3 +58,11 @@ class Barcode(object):
     @property
     def center(self):
         return (self.start + self.end) / 2.
+
+    @property
+    def bars(self):
+        return [t for t in self.tokens if t.state == BAR]
+
+    @property
+    def spaces(self):
+        return [t for t in self.tokens if t.state == SPACE]
