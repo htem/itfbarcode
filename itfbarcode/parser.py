@@ -293,7 +293,7 @@ def find_all_barcode_bounds(st, ndigits=None):
 
 def tokens_to_barcodes(
         tokens, bar_threshold=None, space_threshold=None,
-        max_bar=None, max_space=None, ndigits=None):
+        max_bar=None, max_space=None, ndigits=None, full=False):
     if bar_threshold is None:
         bar_threshold = find_token_threshold(tokens, 1)
     if max_bar is None:
@@ -305,6 +305,7 @@ def tokens_to_barcodes(
     # convert tokens to barcode string
     st = tokens_to_string(
         tokens, bar_threshold, space_threshold, max_bar, max_space)
+    # TODO find a way to bring out ndigits
     bounds = find_all_barcode_bounds(st, ndigits=ndigits)
     bcs = []
     for bound in bounds:
@@ -312,4 +313,9 @@ def tokens_to_barcodes(
         value = string_to_value(st[s+len(start_code):e-len(end_code)])
         if value > -1:
             bcs.append(Barcode(value, tokens[s:e]))
+    if full:
+        info = {
+            'bar_threshold': bar_threshold, 'space_threshold': space_threshold,
+            'max_bar': max_bar, 'max_space': max_space, 'ndigits': ndigits}
+        return bcs, info
     return bcs

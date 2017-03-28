@@ -38,9 +38,16 @@ def to_barcodes(
         vs, ral=None, min_length=None,
         bar_threshold=None, space_threshold=None,
         max_bar=None, max_space=None,
-        ndigits=None):
+        ndigits=None, full=False):
     tokens = to_tokens(vs, ral=ral, min_length=min_length)
-    return parser.tokens_to_barcodes(
+    r = parser.tokens_to_barcodes(
         tokens, bar_threshold=bar_threshold, space_threshold=space_threshold,
         max_bar=max_bar, max_space=max_space,
-        ndigits=ndigits)
+        ndigits=ndigits, full=full)
+    if full:
+        bcs, pinfo = r
+        info = {'ral': ral, 'min_length': min_length, 'tokens': tokens}
+        info.update(pinfo)
+        # TODO measure error for each barcodes tokens
+        return bcs, info
+    return r
