@@ -263,6 +263,8 @@ def string_to_value(bcs):
         if bc < 0 or sc < 0:
             return -1
         chars += bc + sc
+    if len(chars) == 0:
+        return -1
     return int(chars)
 
 
