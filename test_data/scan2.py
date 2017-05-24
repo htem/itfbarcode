@@ -30,7 +30,10 @@ default_meta = {
 default_kwargs = {
     'ndigits': 6,
     'ral': None,
-    'min_length': 3,
+    'min_length': None,
+}
+
+default_scan_kwargs = {
 }
 
 # datasets
@@ -107,45 +110,15 @@ for d in ds:
     ims = [load_image(fn) for fn in fns]
     # convert to values
     vs = [image_to_values(im, meta) for im in ims]
-    # find fits
-    f, a, b, kw = itfbarcode.linescan.search_for_fit(
-        lambda bc: bc.value < 5000, vs[0], rals, min_lengths, **default_kwargs)
-    if kw is None:
-        print("Failed to find any matches... using default kwargs")
-        kw = default_kwargs
-    pylab.figure(1)
-    pylab.clf()
-    pylab.imshow(a, interpolation='nearest')
-    if b is not None:
-        pylab.scatter(b['min_length_i'], b['ral_i'], color='b')
-    if kw is not None:
-        ri = rals.index(kw['ral'])
-        mi = min_lengths.index(kw['min_length'])
-        pylab.scatter(mi, ri, color='g')
-        pylab.title("%r" % kw)
-    pylab.savefig('%s/fit.jpg' % rd)
-    # find best fit
-    with open('%s/fit.json' % rd, 'w') as of:
-        pickle.dump({
-            'f': f, 'a': a, 'b': b, 'kw': kw, 'meta': meta,
-        }, of)
-    # plot fit
-    # evaluate across all
     bcs = []
+    kw = copy.deepcopy(default_kwargs)
+    skw = copy.deepcopy(default_scan_kwargs)
     for v in vs:
-        bc = itfbarcode.linescan.to_barcodes(v, **kw)
-        if bc is None or len(bc) == 0:
-            print("rescanning...")
-            nf, na, nb, nkw = itfbarcode.linescan.search_for_fit(
-                lambda bc: bc.value < 5000, v, rals, min_lengths,
-                **default_kwargs)
-            if nkw is None:
-                print("Failed to find any matches... using default kwargs")
-                nkw = default_kwargs
-            bc = itfbarcode.linescan.to_barcodes(v, **nkw)
-            # TODO if still no luck, try scanning denom, crop
+        bc, kw = itfbarcode.linescan.scan(
+            lambda bc: bc.value < 5000, v, kw, skw)
         bcs.append(bc)
-    #bcs = [itfbarcode.linescan.to_barcodes(v, **kw) for v in vs]
+    with open('%s/kw.p' % rd, 'w') as of:
+        pickle.dump(kw, of)
     for i in xrange(len(bcs)):
         im = ims[i]
         cim = crop_image(im, meta)

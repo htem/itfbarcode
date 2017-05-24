@@ -179,3 +179,34 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
         r.append(sr)
     kw = _best_fit_to_kwargs(best)
     return r, sa, best, kw
+
+
+# TODO bring out scan parameters
+def scan(vbc, vs, kwargs, scan_kwargs):
+    # remove invalid barcodes
+    bcs = [bc for bc in to_barcodes(vs, **kwargs) if vbc(bc)]
+    if len(bcs) == 0:
+        # scan around existing value
+        if kwargs['ral'] is None:
+            l = 10
+            r = 600
+        else:
+            l = max(5, kwargs['ral'] - 200)
+            r = kwargs['ral'] + 200
+        rals = [None, ] + range(l, r, 10)
+        if kwargs['min_length'] is None:
+            l = 1
+            r = 10
+        else:
+            l = max(1, kwargs['min_length'] - 5)
+            r = kwargs['min_length'] + 5
+        min_lengths = [None, ] + range(l, r)
+        print("Scanning...")
+        _, _, b, kw = search_for_fit(vbc, vs, rals, min_lengths, **kwargs)
+        if kw is None:
+            return [], kwargs
+        print("Found: %s" % kw)
+        kwargs = kw
+        bcs = [bc for bc in to_barcodes(vs, **kw) if vbc(bc)]
+    # TODO retries?
+    return bcs, kwargs
