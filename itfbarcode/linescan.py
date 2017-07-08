@@ -10,13 +10,12 @@ import numpy
 import scipy.ndimage
 
 parallel_search = False
-has_joblib = False
 n_jobs = -1
 try:
     import joblib
-    has_joblib = True
+    parallel_search = True
 except ImportError as e:
-    has_joblib = False
+    parallel_search = False
 
 
 from . import parser
@@ -296,7 +295,7 @@ def _parallel_search(vbc, vs, rals, min_lengths, **kwargs):
 
 def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
     """ vbc: function to check if barcode is valid"""
-    if has_joblib and parallel_search and vbc.__name__ != '<lambda>':
+    if parallel_search and vbc.__name__ != '<lambda>':
         print("parallel_search[%s]" % (n_jobs))
         r, sa = _parallel_search(vbc, vs, rals, min_lengths, **kwargs)
     else:
