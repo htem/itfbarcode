@@ -10,9 +10,14 @@ sy = 500
 ey = 620
 
 
+def valid_bc(bc):
+    return bc.value < 5000
+
+
 def tf(vs):
     return itfbarcode.linescan.scan(
-        lambda bc: bc.value < 5000, vs, {'ndigits': 6}, {})
+        valid_bc, vs, {'ndigits': 6}, {})
+        #lambda bc: bc.value < 5000, vs, {'ndigits': 6}, {})
 
 if __name__ == '__main__':
     im = pylab.imread('example_02_image.png')[sy:ey, :, 0]
