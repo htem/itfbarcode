@@ -14,36 +14,53 @@ from . import parser
 from .objects import Token
 
 
-def to_tokens(vs, ral=None, min_length=None):
-    """ral = running average length"""
+def find_tokens(bvs, min_length=None):
     if min_length is None:
+        # TODO quicker method here
         min_length = numpy.inf
+    dbvs = numpy.diff(bvs.astype('int'))
+    einds = numpy.where(dbvs != 0)[0]
+    if len(einds) < 2:
+        return []
+    start = einds[0]
+    if dbvs[start] > 0:
+        state = 1
+    else:
+        state = 0
+    start += 1
+    tokens = []
+    for ei in einds[1:]:
+        if (ei - start) < min_length:
+            continue
+        if dbvs[ei] > 0:  # rising edge
+            if state == 1:
+                continue
+            tokens.append(Token(state, start, ei + 1))
+            state = 1
+            start = ei + 1
+        else:
+            if state == 0:
+                continue
+            tokens.append(Token(state, start, ei + 1))
+            state = 0
+            start = ei + 1
+    return tokens
+
+
+def binarize(vs, ral=None):
+    """ral = running average length"""
     if ral is None:
         t = vs.mean()
     else:
         t = scipy.ndimage.convolve1d(
             vs, numpy.ones(ral, dtype='f8') / ral, mode='reflect')
-    b = vs > t
-    tokens = []
-    start = None
-    state = int(b[0])
-    for (i, bv) in enumerate(b):
-        if (bv != state):
-            if start is not None:
-                if ((i - start) < min_length):
-                    continue
-                tokens.append(Token(state, start, i))
-                #if isinstance(t, numpy.ndarray) and t.size != 1:
-                #    weight = numpy.max(
-                #         numpy.abs(vs[start:i+1] - t[start:i+1]))
-                #else:
-                #    weight = numpy.max(numpy.abs(vs[start:i+1] - t))
-                #if numpy.abs(weight) > 0.1:
-                #    tokens.append(Token(state, start, i))
-                #    tokens[-1].weight = weight
-            start = i
-            state = int(bv)
-    return tokens
+    return vs > t
+
+
+def to_tokens(vs, ral=None, min_length=None):
+    """ral = running average length"""
+    b = binarize(vs, ral)
+    return find_tokens(b, min_length)
 
 
 def to_barcodes(
@@ -51,7 +68,8 @@ def to_barcodes(
         bar_threshold=None, space_threshold=None,
         max_bar=None, max_space=None,
         ndigits=None, full=False):
-    tokens = to_tokens(vs, ral=ral, min_length=min_length)
+    b = binarize(vs, ral=ral)
+    tokens = find_tokens(b, min_length=min_length)
     r = parser.tokens_to_barcodes(
         tokens, bar_threshold=bar_threshold, space_threshold=space_threshold,
         max_bar=max_bar, max_space=max_space,
@@ -72,7 +90,7 @@ def measure_fit(bc, bci):
     r = {'bar': {
         'optimal_threshold': ot,
         'spread': tws.ptp(),
-        }}
+    }}
     tws = numpy.array([b.width for b in bc.bars])
     hm = tws > bci['space_threshold']
     ot = (numpy.mean(tws[hm]) + numpy.mean(tws[~hm])) / 2.
@@ -135,13 +153,25 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
     r = []
     kwargs['full'] = True
     best = None
+    best_bcs = None
     sa = numpy.empty((len(rals), len(min_lengths)))
     for (ral_i, ral) in enumerate(rals):
         sr = []
+        bvs = binarize(vs, ral=ral)
         for (min_length_i, min_length) in enumerate(min_lengths):
             kwargs['ral'] = ral
             kwargs['min_length'] = min_length
-            bcs, bci = to_barcodes(vs, **kwargs)
+            tokens = find_tokens(bvs, min_length=min_length)
+            bcs, pinfo = parser.tokens_to_barcodes(
+                tokens, bar_threshold=kwargs.get('bar_threshold', None),
+                space_threshold=kwargs.get('space_threshold', None),
+                max_bar=kwargs.get('max_bar', None),
+                max_space=kwargs.get('max_space', None),
+                ndigits=kwargs.get('ndigits', None),
+                full=True)
+            bci = {'ral': ral, 'min_length': min_length, 'tokens': tokens}
+            bci.update(pinfo)
+            #bcs, bci = to_barcodes(vs, **kwargs)
             if 'tokens' in bci:
                 del bci['tokens']
             # test that barcodes are valid
@@ -172,13 +202,14 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
             if not numpy.isnan(spread):
                 if best is None or spread > best['spread']:
                     best = copy.deepcopy(bci)
+                    best_bcs = bcs
                 elif spread == best['spread']:
                     best['others'] = (
                         best.get('others', []) + [copy.deepcopy(bci), ])
             sr.append(bci)
         r.append(sr)
     kw = _best_fit_to_kwargs(best)
-    return r, sa, best, kw
+    return r, sa, best, kw, best_bcs
 
 
 # TODO bring out scan parameters
@@ -187,14 +218,14 @@ def scan(vbc, vs, kwargs, scan_kwargs):
     bcs = [bc for bc in to_barcodes(vs, **kwargs) if vbc(bc)]
     if len(bcs) == 0:
         # scan around existing value
-        if kwargs['ral'] is None:
+        if kwargs.get('ral', None) is None:
             l = 10
             r = 600
         else:
             l = max(5, kwargs['ral'] - 200)
             r = kwargs['ral'] + 200
         rals = [None, ] + range(l, r, 10)
-        if kwargs['min_length'] is None:
+        if kwargs.get('min_length', None) is None:
             l = 1
             r = 10
         else:
@@ -202,11 +233,11 @@ def scan(vbc, vs, kwargs, scan_kwargs):
             r = kwargs['min_length'] + 5
         min_lengths = [None, ] + range(l, r)
         print("Scanning...")
-        _, _, b, kw = search_for_fit(vbc, vs, rals, min_lengths, **kwargs)
+        _, _, b, kw, bcs = search_for_fit(vbc, vs, rals, min_lengths, **kwargs)
         if kw is None:
             return [], kwargs
         print("Found: %s" % kw)
         kwargs = kw
-        bcs = [bc for bc in to_barcodes(vs, **kw) if vbc(bc)]
+        #bcs = [bc for bc in to_barcodes(vs, **kw) if vbc(bc)]
     # TODO retries?
     return bcs, kwargs
