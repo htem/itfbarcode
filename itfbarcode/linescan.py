@@ -187,14 +187,14 @@ def scan(vbc, vs, kwargs, scan_kwargs):
     bcs = [bc for bc in to_barcodes(vs, **kwargs) if vbc(bc)]
     if len(bcs) == 0:
         # scan around existing value
-        if kwargs['ral'] is None:
+        if kwargs.get('ral', None) is None:
             l = 10
             r = 600
         else:
             l = max(5, kwargs['ral'] - 200)
             r = kwargs['ral'] + 200
         rals = [None, ] + range(l, r, 10)
-        if kwargs['min_length'] is None:
+        if kwargs.get('min_length', None) is None:
             l = 1
             r = 10
         else:
