@@ -224,22 +224,13 @@ def tokens_to_string(
     ms = [max_space, max_bar]
     s = ''
     for t in tokens:
-        if t.width > ts[t.state]:
-            if t.width > ms[t.state]:
-                s += '?'
-            else:
-                s += wide_chars[t.state]
+        if t.width > ms[t.state]:
+            s += '?'
         else:
-            s += narrow_chars[t.state]
-
-    #for t in tokens:
-    #    if t.width > ms[t.state]:
-    #        s += '?'
-    #    else:
-    #        if t.width > ts[t.state]:
-    #            s += wide_chars[t.state]
-    #        else:
-    #            s += narrow_chars[t.state]
+            if t.width > ts[t.state]:
+                s += wide_chars[t.state]
+            else:
+                s += narrow_chars[t.state]
     return s
 
 
