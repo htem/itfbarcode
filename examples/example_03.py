@@ -51,3 +51,15 @@ if __name__ == '__main__':
     t1 = time.time()
     print "Barcodes: %s" % (bcs, )
     print "Time: %s" % (t1 - t0)
+    if itfbarcode.linescan.has_joblib:
+        if itfbarcode.linescan.parallel_search:
+            print("Testing serial search")
+            itfbarcode.linescan.parallel_search = False
+        else:
+            print("Testing parallel search")
+            itfbarcode.linescan.parallel_search = True
+        t0 = time.time()
+        bcs, kw = tf(vs)
+        t1 = time.time()
+        print "Barcodes: %s" % (bcs, )
+        print "Time: %s" % (t1 - t0)
