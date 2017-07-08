@@ -14,16 +14,67 @@ from . import parser
 from .objects import Token
 
 
-def to_tokens(vs, ral=None, min_length=None):
-    """ral = running average length"""
-    if min_length is None:
-        min_length = numpy.inf
+def binarize(vs, ral=None):
     if ral is None:
         t = vs.mean()
     else:
         t = scipy.ndimage.convolve1d(
             vs, numpy.ones(ral, dtype='f8') / ral, mode='reflect')
-    b = vs > t
+    return vs > t
+
+
+def to_tokens(bvs, min_length=None):
+    dbvs = numpy.diff(bvs.astype('int'))
+    einds = numpy.where(dbvs != 0)[0]
+    if len(einds) < 2:
+        return []
+    start = einds[0]
+    if dbvs[start] > 0:
+        state = 1
+    else:
+        state = 0
+    start += 1
+    tokens = []
+    if min_length is None:
+        min_length = 0
+    for ei in einds[1:]:
+        if ei < start:
+            continue
+        if (ei - start) < min_length:
+            # this bar/space is too small, make it wider
+            nei = start + min_length + 1
+            if nei >= len(bvs):
+                break
+            if bvs[nei] and state == 0:  # rising edge
+                tokens.append(Token(state, start, nei))
+                state = 0
+                start = nei
+                continue
+            if not bvs[nei] and state == 1:  # falling edge
+                tokens.append(Token(state, start, nei))
+                state = 0
+                start = nei
+                continue
+            continue
+        if dbvs[ei] > 0:  # rising edge
+            if state == 1:
+                continue
+            tokens.append(Token(state, start, ei + 1))
+            state = 1
+            start = ei + 1
+        else:
+            if state == 0:
+                continue
+            tokens.append(Token(state, start, ei + 1))
+            state = 0
+            start = ei + 1
+    return tokens
+
+
+def old_to_tokens(vs, min_length=None):
+    """ral = running average length"""
+    if min_length is None:
+        min_length = numpy.inf
     tokens = []
     start = None
     state = int(b[0])
@@ -51,7 +102,8 @@ def to_barcodes(
         bar_threshold=None, space_threshold=None,
         max_bar=None, max_space=None,
         ndigits=None, full=False):
-    tokens = to_tokens(vs, ral=ral, min_length=min_length)
+    bvs = binarize(vs, ral=ral)
+    tokens = to_tokens(bvs, min_length=min_length)
     r = parser.tokens_to_barcodes(
         tokens, bar_threshold=bar_threshold, space_threshold=space_threshold,
         max_bar=max_bar, max_space=max_space,
@@ -72,7 +124,7 @@ def measure_fit(bc, bci):
     r = {'bar': {
         'optimal_threshold': ot,
         'spread': tws.ptp(),
-        }}
+    }}
     tws = numpy.array([b.width for b in bc.bars])
     hm = tws > bci['space_threshold']
     ot = (numpy.mean(tws[hm]) + numpy.mean(tws[~hm])) / 2.
@@ -138,12 +190,19 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
     sa = numpy.empty((len(rals), len(min_lengths)))
     for (ral_i, ral) in enumerate(rals):
         sr = []
+        bvs = binarize(vs, ral)
         for (min_length_i, min_length) in enumerate(min_lengths):
+            tokens = to_tokens(bvs, min_length)
+            bcs, bci = parser.tokens_to_barcodes(
+                tokens, bar_threshold=kwargs.get('bar_threshold', None),
+                space_threshold=kwargs.get('space_threshold', None),
+                max_bar=kwargs.get('max_bar', None),
+                max_space=kwargs.get('max_space', None),
+                ndigits=kwargs.get('ndigits', None),
+                full=True)
             kwargs['ral'] = ral
             kwargs['min_length'] = min_length
-            bcs, bci = to_barcodes(vs, **kwargs)
-            if 'tokens' in bci:
-                del bci['tokens']
+            #bcs, bci = to_barcodes(vs, **kwargs)
             # test that barcodes are valid
             bcs = [bc for bc in bcs if vbc(bc)]
             # how to handle evaluating fit for multiple barcodes?
