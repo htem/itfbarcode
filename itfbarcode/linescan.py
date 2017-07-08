@@ -9,14 +9,6 @@ import inspect
 import numpy
 import scipy.ndimage
 
-parallel_search = False
-n_jobs = -1
-try:
-    import joblib
-    parallel_search = True
-except ImportError as e:
-    parallel_search = False
-
 
 from . import parser
 from .objects import Token
@@ -156,168 +148,68 @@ def _best_fit_to_kwargs(best):
     return kw
 
 
-def _search_eval(vbc, bvs, min_length, **kwargs):
-    tokens = find_tokens(bvs, min_length=min_length)
-    bcs, pinfo = parser.tokens_to_barcodes(
-        tokens, bar_threshold=kwargs.get('bar_threshold', None),
-        space_threshold=kwargs.get('space_threshold', None),
-        max_bar=kwargs.get('max_bar', None),
-        max_space=kwargs.get('max_space', None),
-        ndigits=kwargs.get('ndigits', None),
-        full=True)
-    bci = {}
-    bci.update(pinfo)
-    # test that barcodes are valid
-    bcs = [bc for bc in bcs if vbc(bc)]
-    # how to handle evaluating fit for multiple barcodes?
-    if len(bcs) > 0:
-        fits = [measure_fit(b, bci) for b in bcs]
-        spreads = [
-            f['bar']['spread'] * f['space']['spread'] for f in fits]
-        max_i = max(range(len(spreads)), key=lambda i: spreads[i])
-        spread = spreads[max_i]
-        bci.update(fits[max_i])
-        bci['spreads'] = spreads
-        bci['fits'] = fits
-        #bci.update(measure_fit(bcs[0], bci))
-    else:
-        bci.update({
-            'spreads': [],
-            'fits': [],
-            'bar': {'spread': numpy.nan},
-            'space': {'spread': numpy.nan}})
-        spread = numpy.nan
-    bci['bcs'] = bcs
-    #bci['ral_i'] = ral_i
-    #bci['min_length_i'] = min_length_i
-    #sa[ral_i, min_length_i] = spread
-    bci.update({'spread': spread})
-    #if not numpy.isnan(spread):
-    #    if best is None or spread > best['spread']:
-    #        best = copy.deepcopy(bci)
-    #        best_bcs = bcs
-    #    elif spread == best['spread']:
-    #        best['others'] = (
-    #            best.get('others', []) + [copy.deepcopy(bci), ])
-    #sr.append(bci)
-    return bci
-
-
-def _serial_search(vbc, vs, rals, min_lengths, **kwargs):
+def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
+    """ vbc: function to check if barcode is valid"""
     r = []
     kwargs['full'] = True
+    best = None
+    best_bcs = None
     sa = numpy.empty((len(rals), len(min_lengths)))
     for (ral_i, ral) in enumerate(rals):
         sr = []
         bvs = binarize(vs, ral=ral)
         for (min_length_i, min_length) in enumerate(min_lengths):
-            bci = _search_eval(vbc, bvs, min_length, **kwargs)
-            bci['ral'] = ral
-            bci['min_length'] = min_length
-            sa[ral_i, min_length_i] = bci['spread']
-            sr.append(bci)
-            #kwargs['ral'] = ral
-            #kwargs['min_length'] = min_length
-            #tokens = find_tokens(bvs, min_length=min_length)
-            #bcs, pinfo = parser.tokens_to_barcodes(
-            #    tokens, bar_threshold=kwargs.get('bar_threshold', None),
-            #    space_threshold=kwargs.get('space_threshold', None),
-            #    max_bar=kwargs.get('max_bar', None),
-            #    max_space=kwargs.get('max_space', None),
-            #    ndigits=kwargs.get('ndigits', None),
-            #    full=True)
-            #bci = {'ral': ral, 'min_length': min_length}
-            #bci.update(pinfo)
-            ## test that barcodes are valid
-            #bcs = [bc for bc in bcs if vbc(bc)]
-            ## how to handle evaluating fit for multiple barcodes?
-            #if len(bcs) > 0:
-            #    fits = [measure_fit(b, bci) for b in bcs]
-            #    spreads = [
-            #        f['bar']['spread'] * f['space']['spread'] for f in fits]
-            #    max_i = max(range(len(spreads)), key=lambda i: spreads[i])
-            #    spread = spreads[max_i]
-            #    bci.update(fits[max_i])
-            #    bci['spreads'] = spreads
-            #    bci['fits'] = fits
-            #    #bci.update(measure_fit(bcs[0], bci))
-            #else:
-            #    bci.update({
-            #        'spreads': [],
-            #        'fits': [],
-            #        'bar': {'spread': numpy.nan},
-            #        'space': {'spread': numpy.nan}})
-            #    spread = numpy.nan
-            #bci['bcs'] = bcs
-            #bci['ral_i'] = ral_i
-            #bci['min_length_i'] = min_length_i
-            #sa[ral_i, min_length_i] = spread
-            #bci.update({
-            #    'spread': spread, 'ral': ral, 'min_length': min_length})
-            ##if not numpy.isnan(spread):
-            ##    if best is None or spread > best['spread']:
-            ##        best = copy.deepcopy(bci)
-            ##        best_bcs = bcs
-            ##    elif spread == best['spread']:
-            ##        best['others'] = (
-            ##            best.get('others', []) + [copy.deepcopy(bci), ])
-            #sr.append(bci)
-        r.append(sr)
-    return r, sa
-
-
-def _parallel_search(vbc, vs, rals, min_lengths, **kwargs):
-    r = []
-    kwargs['full'] = True
-    sa = numpy.empty((len(rals), len(min_lengths)))
-    # precompute binarized vs
-    bvs = joblib.parallel.Parallel(n_jobs=n_jobs)(
-        joblib.parallel.delayed(binarize)(
-            vs, ral=ral) for ral in rals)
-    # evaluate all bv, min_length pairs
-    rs = joblib.parallel.Parallel(n_jobs=n_jobs)(
-        joblib.parallel.delayed(_search_eval)(
-            vbc, bv, min_length, **kwargs)
-        for bv in bvs
-        for min_length in min_lengths)
-    # reshape results from (r0, m0), (r0, m1)
-    r = []
-    for (i, ral) in enumerate(rals):
-        sr = []
-        for (j, min_length) in enumerate(min_lengths):
-            sr.append(rs.pop(0))
-            sr[-1]['ral'] = ral
-            sr[-1]['min_length'] = min_length
-            sa[i, j] = sr[-1]['spread']
-        r.append(sr)
-    return r, sa
-
-
-def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
-    """ vbc: function to check if barcode is valid"""
-    if parallel_search and vbc.__name__ != '<lambda>':
-        print("parallel_search[%s]" % (n_jobs))
-        r, sa = _parallel_search(vbc, vs, rals, min_lengths, **kwargs)
-    else:
-        print("serial_search")
-        r, sa = _serial_search(vbc, vs, rals, min_lengths, **kwargs)
-    best = None
-    # find best fit
-    for sr in r:
-        for bci in sr:
-            spread = bci['spread']
+            kwargs['ral'] = ral
+            kwargs['min_length'] = min_length
+            tokens = find_tokens(bvs, min_length=min_length)
+            bcs, pinfo = parser.tokens_to_barcodes(
+                tokens, bar_threshold=kwargs.get('bar_threshold', None),
+                space_threshold=kwargs.get('space_threshold', None),
+                max_bar=kwargs.get('max_bar', None),
+                max_space=kwargs.get('max_space', None),
+                ndigits=kwargs.get('ndigits', None),
+                full=True)
+            bci = {'ral': ral, 'min_length': min_length, 'tokens': tokens}
+            bci.update(pinfo)
+            #bcs, bci = to_barcodes(vs, **kwargs)
+            if 'tokens' in bci:
+                del bci['tokens']
+            # test that barcodes are valid
+            bcs = [bc for bc in bcs if vbc(bc)]
+            # how to handle evaluating fit for multiple barcodes?
+            if len(bcs) > 0:
+                fits = [measure_fit(b, bci) for b in bcs]
+                spreads = [
+                    f['bar']['spread'] * f['space']['spread'] for f in fits]
+                max_i = max(range(len(spreads)), key=lambda i: spreads[i])
+                spread = spreads[max_i]
+                bci.update(fits[max_i])
+                bci['spreads'] = spreads
+                bci['fits'] = fits
+                #bci.update(measure_fit(bcs[0], bci))
+            else:
+                bci.update({
+                    'spreads': [],
+                    'fits': [],
+                    'bar': {'spread': numpy.nan},
+                    'space': {'spread': numpy.nan}})
+                spread = numpy.nan
+            bci['ral_i'] = ral_i
+            bci['min_length_i'] = min_length_i
+            sa[ral_i, min_length_i] = spread
+            bci.update({
+                'spread': spread, 'ral': ral, 'min_length': min_length})
             if not numpy.isnan(spread):
                 if best is None or spread > best['spread']:
                     best = copy.deepcopy(bci)
+                    best_bcs = bcs
                 elif spread == best['spread']:
                     best['others'] = (
                         best.get('others', []) + [copy.deepcopy(bci), ])
+            sr.append(bci)
+        r.append(sr)
     kw = _best_fit_to_kwargs(best)
-    if best is not None:
-        bcs = best.get('bcs', [])
-    else:
-        bcs = []
-    return r, sa, best, kw, bcs
+    return r, sa, best, kw, best_bcs
 
 
 # TODO bring out scan parameters
