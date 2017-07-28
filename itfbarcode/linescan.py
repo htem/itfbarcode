@@ -241,25 +241,51 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
 
 
 # TODO bring out scan parameters
-def scan(vbc, vs, kwargs, scan_kwargs):
+def scan(vbc, vs, kwargs, scan_kwargs=None):
+    """
+    scan_kwargs:
+        scan = True or False, if scanning is enabled
+        ral_min, ral_max
+        ral_scan (scan +- ral_scan in steps of size ral-step)
+        ral_none include None in ral scan
+        min_length_min, min_length_max
+        min_length_scan (same as ral_scan)
+        min_length_none (same as ral_none)
+    """
+    if scan_kwargs is None:
+        scan_kwargs = {}
     # remove invalid barcodes
     bcs = [bc for bc in to_barcodes(vs, **kwargs) if vbc(bc)]
-    if len(bcs) == 0:
+    if len(bcs) == 0 and scan_kwargs.get('scan', True):
         # scan around existing value
         if kwargs.get('ral', None) is None:
-            l = 10
-            r = 600
+            l = scan_kwargs.get('ral_min', 10)
+            r = scan_kwargs.get('ral_max', 600)
         else:
-            l = max(5, kwargs['ral'] - 200)
-            r = kwargs['ral'] + 200
-        rals = [None, ] + range(l, r, 10)
+            l = max(
+                scan_kwargs.get('ral_min', 5),
+                kwargs['ral'] - scan_kwargs.get('ral_scan', 200))
+            r = min(
+                scan_kwargs.get('ral_max', 600),
+                kwargs['ral'] + scan_kwargs.get('ral_scan', 200))
+        if scan_kwargs.get('ral_none', True):
+            rals = [None, ] + range(l, r, scan_kwargs.get('ral_step', 10))
+        else:
+            rals = range(l, r, scan_kwargs.get('ral_step', 10))
         if kwargs.get('min_length', None) is None:
-            l = 1
-            r = 10
+            l = scan_kwargs.get('min_length_min', 1)
+            r = scan_kwargs.get('min_length_max', 10)
         else:
-            l = max(1, kwargs['min_length'] - 5)
-            r = kwargs['min_length'] + 5
-        min_lengths = [None, ] + range(l, r)
+            l = max(
+                scan_kwargs.get('min_length_min', 1),
+                kwargs['min_length'] - scan_kwargs.get('min_length_scan', 5))
+            r = min(
+                scan_kwargs.get('min_length_max', 10),
+                kwargs['min_length'] + scan_kwargs.get('min_length_scan', 5))
+        if scan_kwargs.get('min_length_none', True):
+            min_lengths = [None, ] + range(l, r)
+        else:
+            min_lengths = range(l, r)
         print("Scanning...")
         _, _, b, kw = search_for_fit(vbc, vs, rals, min_lengths, **kwargs)
         if kw is None:
