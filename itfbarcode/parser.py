@@ -47,7 +47,7 @@ chars = {
     'nWnWn': '9',
 }
 
-rchars = {chars[k]: k for k in chars}
+rchars = {chars[k]: k for k in chars if 'n' in k}
 
 errors = {
     -1: 'missing start code',
@@ -192,16 +192,24 @@ def gen_tokens(v, ndigits=None):
         raise ValueError("ndigits must be defined")
     if (ndigits % 2):
         raise ValueError("ndigits must be even: %s" % ndigits)
-    sc = 'nnnn'
-    ec = 'Wnn'
+    #sc = 'nnnn'
+    sc = 'bsbs'
+    #ec = 'Wnn'
+    ec = 'Bsb'
     s = sc
     vc = str(v).zfill(ndigits)
     for i in xrange(ndigits / 2):
-        c0 = rchars[int(vc[2*i])]  # bars
-        c1 = rchars[int(vc[2*i+1])]  # spaces
+        c0 = rchars[vc[2*i]]  # bars
+        c1 = rchars[vc[2*i+1]]  # spaces
         for (j0, j1) in zip(c0, c1):
-            s += j0
-            s += j1
+            if j0 == 'n':
+                s += 'b'
+            else:
+                s += 'B'
+            if j1 == 'n':
+                s += 's'
+            else:
+                s += 'S'
     s += ec
     return s
 
