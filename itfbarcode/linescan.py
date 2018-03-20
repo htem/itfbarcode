@@ -11,7 +11,7 @@ import scipy.ndimage
 
 
 from . import parser
-from .objects import Token
+from .objects import Token, Barcode
 
 
 def binarize(vs, ral=None):
@@ -295,3 +295,141 @@ def scan(vbc, vs, kwargs, scan_kwargs=None):
         bcs = [bc for bc in to_barcodes(vs, **kw) if vbc(bc)]
     # TODO retries?
     return bcs, kwargs
+
+
+def _find_wide_spaces(vs):
+    ts = sorted(vs)
+    ti = 5
+    troughs = []
+    steps = 0
+    nsteps = 0
+    while len(troughs) < 6 and ti < len(ts) - 1:
+        ti += 1
+        t= ts[ti]
+        # find 6 wide spaces all > 10 pixels wide
+        # find troughs
+        si = None
+        wc = 0
+        troughs = []
+        for (i, v) in enumerate(vs):
+            if v < t:
+                if si is None:
+                    si = i
+                wc += 1
+            else:
+                if si is not None:
+                    if wc > 10:
+                        troughs.append((si,wc))
+                    si = None
+                    wc = 0
+        if len(troughs) > 5:
+            steps += 1
+        if steps > 0 and len(troughs) > 6:
+            steps = nsteps + 10
+            ti -= 2
+        if steps < nsteps:
+            troughs = []
+    print(t, steps)
+    return troughs
+
+
+def scan_approximate(vs, vs_filt, kwargs):
+    """
+    vs is the mean of the image
+    vs_filt is a harshly filtered linescan
+
+    kwargs:
+        possible_bcs= array of possible barcodes (None default)
+        ratio = ratio of wide token to small token (2.5 default)
+        slop = amount of extra cut on either end of the barcode (1.0 default)
+    """
+    ratio = kwargs.get("ratio",2.5)
+    slop = kwargs.get("slop",1.0)
+    min_inter_barcode_width = kwargs.get("min_inter_barcode_width", 40)
+
+    denom = 13 * ratio + 24.0 + slop
+    token_spacing = {
+      'b': 1/denom,
+      's': 1/denom,
+      'B': ratio/denom,
+      'S': ratio/denom
+    }
+
+    # first generate what we would expect to find
+    pbcs = kwargs.get("possible_bcs",None)
+    if pbcs is None:
+         print "Cannot do approximate barcodes if there are no possible bcs"
+         return []
+    poss_tokens = [parser.gen_tokens(v,ndigits=6) for v in pbcs]
+
+    # calculate wide space offsets for the possible barcodes
+    ws_offsets = []
+    for tok in poss_tokens:
+        wso = []
+        l = token_spacing['b'] / 2.0
+        for c in tok:
+            l += token_spacing[c] / 2.0
+            if c == 'S':
+                wso.append(l)
+            l += token_spacing[c] / 2.0
+        ws_offsets.append(wso)
+    ws_offsets = numpy.array(ws_offsets)
+
+     # now find our barcodes from the troughs
+    start_i = None
+    width_count = 0
+    troughs = []
+    m = vs_filt.mean()
+    for (i, v) in enumerate(vs_filt):
+        if v < m:
+            if start_i is None:
+                start_i = i
+            width_count += 1
+        else:
+            if start_i is not None:
+                troughs.append((start_i, width_count))
+                start_i = None
+                width_count = 0
+    bc_coords = []
+    bc_start = None
+    for t in troughs:
+        si, w = t
+        if w > min_inter_barcode_width:
+            if bc_start is not None:
+                bc_coords.append((bc_start,si))
+            bc_start = si + w
+
+    bcs = []
+    ret_bcs = []
+    for bcc in bc_coords:
+        s, e = bcc
+        tokns = []
+        if ( e - s ) < 400 or (e - s ) > 800:
+            continue
+        bc = { # TODO need to figure out getting this into a barcode object
+             'start': s, 'end':e}
+        bc_vs = vs_filt[s:e]
+        bs_ws = _find_wide_spaces(bc_vs)
+        bc['wide_spaces'] = bs_ws
+        w = float(e - s)
+        print bs_ws[0]
+        tokns.append(Token(1,s,bs_ws[0][0]))
+        for v in bs_ws:
+            tokns.append(Token(0,v[0],v[0]))
+        tokns.append(Token(1,bs_ws[-1][0],e))
+        ret_bcs.append(Barcode(-1,tokns))
+        bc['normed_ws'] = [v[0] / w for v in bs_ws]
+        print bc
+        bcs.append(bc)
+
+    nws = numpy.array([bc['normed_ws'] for bc in bcs])
+    nbcs = len(bcs)
+    match_errors = []
+    for i in range(len(ws_offsets) - nbcs + 1 ):
+        e = ws_offsets[i:i+nbcs] - nws
+        match_errors.append((i,numpy.sum(numpy.abs(e)), pbcs[i:i+nbcs]))
+
+    match = min(match_errors, key=lambda i: i[1])
+    for i in range(len(match[2])):
+        ret_bcs[i].value = match[2][i]
+    return ret_bcs
