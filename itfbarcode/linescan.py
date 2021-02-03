@@ -296,6 +296,41 @@ def scan(vbc, vs, kwargs, scan_kwargs=None):
     # TODO retries?
     return bcs, kwargs
 
+def find_barcode_locations(vs_filt, min_inter_bc_width=40):
+    # now find our barcodes from the troughs
+    start_i = None
+    width_count = 0
+    troughs = []
+    m = vs_filt.mean()
+    for (i, v) in enumerate(vs_filt):
+        if v < m:
+            if start_i is None:
+                start_i = i
+            width_count += 1
+        else:
+            if start_i is not None:
+                troughs.append((start_i, width_count))
+                start_i = None
+                width_count = 0
+    bc_coords = []
+    bc_start = None
+    for t in troughs:
+        si, w = t
+        if w > min_inter_bc_width:
+            if bc_start is not None:
+                bc_coords.append((bc_start,si))
+            bc_start = si + w
+    if len(bc_coords) == 0:
+        return []
+    ret_bcs = []
+    for bcc in bc_coords:
+        s, e = bcc
+        tokns = []
+        if ( e - s ) < 400 or (e - s ) > 800:
+            continue
+	ret_bcs.append(s + (e-s)/2)
+    return ret_bcs
+
 
 def _find_wide_spaces(vs):
     ts = sorted(vs)
@@ -345,7 +380,7 @@ def scan_approximate(vs, vs_filt, kwargs):
     """
     ratio = kwargs.get("ratio",2.5)
     slop = kwargs.get("slop",1.0)
-    min_inter_barcode_width = kwargs.get("min_inter_barcode_width", 40)
+    min_inter_barcode_width = kwargs.get("min_inter_barcode_width", 75)
 
     denom = 13 * ratio + 24.0 + slop
     token_spacing = {
@@ -398,7 +433,8 @@ def scan_approximate(vs, vs_filt, kwargs):
             if bc_start is not None:
                 bc_coords.append((bc_start,si))
             bc_start = si + w
-
+    if len(bc_coords) == 0:
+        return []
     bcs = []
     ret_bcs = []
     for bcc in bc_coords:
@@ -410,6 +446,8 @@ def scan_approximate(vs, vs_filt, kwargs):
              'start': s, 'end':e}
         bc_vs = vs_filt[s:e]
         bs_ws = _find_wide_spaces(bc_vs)
+        if len(bs_ws) == 0:
+            continue
         bc['wide_spaces'] = bs_ws
         w = float(e - s)
         print bs_ws[0]
@@ -423,6 +461,10 @@ def scan_approximate(vs, vs_filt, kwargs):
         bcs.append(bc)
 
     nws = numpy.array([bc['normed_ws'] for bc in bcs])
+    if nws.size == 0:
+        return ret_bcs
+    if nws.ndim < 2:
+        return ret_bcs
     nbcs = len(bcs)
     match_errors = []
     for i in range(len(ws_offsets) - nbcs + 1 ):
