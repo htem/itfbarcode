@@ -363,7 +363,7 @@ if __name__ == '__main__':
         config = Configuration(package_name, '', None)
 
         for sub_package in sub_packages:
-            print(f'adding {sub_package}')
+            print('adding ', sub_package)
             config.add_subpackage(sub_package)
 
         from numpy.distutils.core import setup
