@@ -3,7 +3,7 @@
 
 """ distribute- and pip-enabled setup.py """
 
-import ConfigParser
+import configparser
 import logging
 import os
 import re
@@ -50,16 +50,16 @@ update_url = "https://raw.githubusercontent.com/braingram/simple_setup/master/se
 if (len(sys.argv) > 1) and sys.argv[1] == 'fetch':
     _overrides = {}
     _locals = locals()
-    for _k in _locals.keys():
+    for _k in list(_locals.keys()):
         if (_k[0] != '_') and not isinstance(_locals[_k], type(sys)):
             _overrides[_k] = _locals[_k]
     if len(sys.argv) > 2:
         target_fn = sys.argv[2]
     else:
         target_fn = __file__
-    print("Fetching a new simple_setup.py to {}".format(target_fn))
-    import urllib2
-    new_ss = urllib2.urlopen(update_url)
+    print(("Fetching a new simple_setup.py to {}".format(target_fn)))
+    import urllib.request, urllib.error, urllib.parse
+    new_ss = urllib.request.urlopen(update_url)
     with open(target_fn, 'w') as target:
         found_mark = False
         for l in new_ss:
@@ -246,7 +246,7 @@ def author_info_from_pypirc():
     author_email = None
     fn = os.path.expanduser('~/.pypirc')
     if os.path.exists(fn):
-        c = ConfigParser.SafeConfigParser()
+        c = configparser.SafeConfigParser()
         c.read(fn)
         if c.has_section('simple_setup'):
             if c.has_option('simple_setup', 'author'):
@@ -363,7 +363,7 @@ if __name__ == '__main__':
         config = Configuration(package_name, '', None)
 
         for sub_package in sub_packages:
-            print 'adding', sub_package
+            print('adding', sub_package)
             config.add_subpackage(sub_package)
 
         from numpy.distutils.core import setup

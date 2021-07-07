@@ -30,7 +30,7 @@ def plot_barcode(im, bc, bci):
     hm = tws > bci['bar_threshold']
     ot = (numpy.mean(tws[hm]) + numpy.mean(tws[~hm])) / 2.
     pylab.title('%0.4f [%0.4f]' % (ot, tws.ptp()))
-    pylab.scatter(range(tws.size), tws)
+    pylab.scatter(list(range(tws.size)), tws)
     pylab.axhline(bci['bar_threshold'], color='k')
     pylab.axhline(ot, color='g')
     pylab.axhline(bci['max_bar'], color='r')
@@ -42,7 +42,7 @@ def plot_barcode(im, bc, bci):
     pylab.axhline(bci['space_threshold'], color='k')
     pylab.axhline(ot, color='g')
     pylab.axhline(bci['max_space'], color='r')
-    pylab.scatter(range(tws.size), tws)
+    pylab.scatter(list(range(tws.size)), tws)
 
 
 def draw_info(info):

@@ -210,7 +210,7 @@ def search_for_fit(vbc, vs, rals, min_lengths, **kwargs):
                 fits = [measure_fit(b, bci) for b in bcs]
                 spreads = [
                     f['bar']['spread'] * f['space']['spread'] for f in fits]
-                max_i = max(range(len(spreads)), key=lambda i: spreads[i])
+                max_i = max(list(range(len(spreads))), key=lambda i: spreads[i])
                 spread = spreads[max_i]
                 bci.update(fits[max_i])
                 bci['spreads'] = spreads
@@ -269,9 +269,9 @@ def scan(vbc, vs, kwargs, scan_kwargs=None):
                 scan_kwargs.get('ral_max', 600),
                 kwargs['ral'] + scan_kwargs.get('ral_scan', 200))
         if scan_kwargs.get('ral_none', True):
-            rals = [None, ] + range(l, r, scan_kwargs.get('ral_step', 10))
+            rals = [None, ] + list(range(l, r, scan_kwargs.get('ral_step', 10)))
         else:
-            rals = range(l, r, scan_kwargs.get('ral_step', 10))
+            rals = list(range(l, r, scan_kwargs.get('ral_step', 10)))
         if kwargs.get('min_length', None) is None:
             l = scan_kwargs.get('min_length_min', 1)
             r = scan_kwargs.get('min_length_max', 10)
@@ -283,14 +283,14 @@ def scan(vbc, vs, kwargs, scan_kwargs=None):
                 scan_kwargs.get('min_length_max', 10),
                 kwargs['min_length'] + scan_kwargs.get('min_length_scan', 5))
         if scan_kwargs.get('min_length_none', True):
-            min_lengths = [None, ] + range(l, r)
+            min_lengths = [None, ] + list(range(l, r))
         else:
-            min_lengths = range(l, r)
+            min_lengths = list(range(l, r))
         print("Scanning...")
         _, _, b, kw = search_for_fit(vbc, vs, rals, min_lengths, **kwargs)
         if kw is None:
             return [], kwargs
-        print("Found: %s" % kw)
+        print(("Found: %s" % kw))
         kwargs = kw
         bcs = [bc for bc in to_barcodes(vs, **kw) if vbc(bc)]
     # TODO retries?
@@ -364,7 +364,7 @@ def _find_wide_spaces(vs):
             ti -= 2
         if steps < nsteps:
             troughs = []
-    print(t, steps)
+    print((t, steps))
     return troughs
 
 
@@ -393,7 +393,7 @@ def scan_approximate(vs, vs_filt, kwargs):
     # first generate what we would expect to find
     pbcs = kwargs.get("possible_bcs",None)
     if pbcs is None:
-         print "Cannot do approximate barcodes if there are no possible bcs"
+         print("Cannot do approximate barcodes if there are no possible bcs")
          return []
     poss_tokens = [parser.gen_tokens(v,ndigits=6) for v in pbcs]
 
@@ -450,14 +450,14 @@ def scan_approximate(vs, vs_filt, kwargs):
             continue
         bc['wide_spaces'] = bs_ws
         w = float(e - s)
-        print bs_ws[0]
+        print(bs_ws[0])
         tokns.append(Token(1,s,bs_ws[0][0]))
         for v in bs_ws:
             tokns.append(Token(0,v[0],v[0]))
         tokns.append(Token(1,bs_ws[-1][0],e))
         ret_bcs.append(Barcode(-1,tokns))
         bc['normed_ws'] = [v[0] / w for v in bs_ws]
-        print bc
+        print(bc)
         bcs.append(bc)
 
     nws = numpy.array([bc['normed_ws'] for bc in bcs])

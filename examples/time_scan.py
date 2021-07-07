@@ -49,5 +49,5 @@ if __name__ == '__main__':
     t0 = time.time()
     bcs, kw = tf(vs)
     t1 = time.time()
-    print "Barcodes: %s" % (bcs, )
-    print "Time: %s" % (t1 - t0)
+    print("Barcodes: %s" % (bcs, ))
+    print("Time: %s" % (t1 - t0))

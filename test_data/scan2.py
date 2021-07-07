@@ -45,8 +45,8 @@ if len(sys.argv) > 1:
             nds.append(s)
     ds = nds
 
-rals = [None, ] + range(10, 600, 10)
-min_lengths = range(0, 10)
+rals = [None, ] + list(range(10, 600, 10))
+min_lengths = list(range(0, 10))
 
 
 def is_image_fn(fn):
@@ -94,7 +94,7 @@ if not os.path.exists(rdir):
     os.makedirs(rdir)
 results = {}
 for d in ds:
-    print("== dataset %s ==" % d)
+    print(("== dataset %s ==" % d))
     fns = sorted([fn for fn in glob.glob('%s/*' % d) if is_image_fn(fn)])
     mfn = '%s/meta.json' % d
     if os.path.exists(mfn):
@@ -102,7 +102,7 @@ for d in ds:
             meta = json.load(mf)
     else:
         meta = copy.deepcopy(default_meta)
-    print meta
+    print(meta)
     rd = '%s/%s' % (rdir, d)
     if not os.path.exists(rd):
         os.makedirs(rd)
@@ -119,7 +119,7 @@ for d in ds:
         bcs.append(bc)
     with open('%s/kw.p' % rd, 'w') as of:
         pickle.dump(kw, of)
-    for i in xrange(len(bcs)):
+    for i in range(len(bcs)):
         im = ims[i]
         cim = crop_image(im, meta)
         bc = bcs[i]
@@ -147,8 +147,8 @@ for d in ds:
         sfn = '%s/%02i' % (rd, i)
         pylab.savefig(sfn)
     results[d] = bcs
-    print("%i images" % len(ims))
-    print("%i barcodes" % sum([len(b) for b in bcs]))
-    print("%i missing" % len([b for b in bcs if len(b) == 0]))
-    print("%r" % kw)
+    print(("%i images" % len(ims)))
+    print(("%i barcodes" % sum([len(b) for b in bcs])))
+    print(("%i missing" % len([b for b in bcs if len(b) == 0])))
+    print(("%r" % kw))
     print("")
