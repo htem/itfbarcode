@@ -55,4 +55,4 @@ if __name__ == '__main__':
        barcode lines"""
     barcode = itfbarcode.read_barcode(
         test_barcode_array, length_threshold=1)
-    print "Barcode is: {}".format(barcode)
+    print("Barcode is: {}".format(barcode))
