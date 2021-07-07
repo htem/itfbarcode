@@ -12,7 +12,6 @@ def scan_image_y(
         start_x = 0
     if end_x is None:
         end_x = im.shape[1]
-    print('range', start_x, end_x)
     if y is None:
         y = im.shape[0] // 2
     if scan_range is None:
