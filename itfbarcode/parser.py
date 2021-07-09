@@ -154,7 +154,7 @@ def parse_tokens(ls):
         return -3  # invalid number of bars
     if divmod(c, 2)[1] != 0:
         return -4  # invalid number of [5-bar sequences] characters
-    nc = c / 2
+    nc = c // 2
     v = []
     # parse list of narrow/wides into value
     for i in range(nc):
@@ -181,7 +181,7 @@ def read_barcode(bcd, lpn=101, length_threshold=5, use_mean=False, full=False):
 
 
 def is_valid(bc):
-    return isinstance(bc, list) and not any((b < 0 for b in bc))
+    return isinstance(bc, list) and not any((int(b) < 0 for b in bc))  #Added int( ) for python3
 
 
 def gen_tokens(v, ndigits=None):
@@ -198,7 +198,7 @@ def gen_tokens(v, ndigits=None):
     ec = 'Bsb'
     s = sc
     vc = str(v).zfill(ndigits)
-    for i in range(ndigits / 2):
+    for i in range(ndigits // 2):
         c0 = rchars[vc[2*i]]  # bars
         c1 = rchars[vc[2*i+1]]  # spaces
         for (j0, j1) in zip(c0, c1):
