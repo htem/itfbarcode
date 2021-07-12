@@ -328,7 +328,7 @@ def find_barcode_locations(vs_filt, min_inter_bc_width=40):
         tokns = []
         if ( e - s ) < 400 or (e - s ) > 800:
             continue
-	ret_bcs.append(s + (e-s)/2)
+    ret_bcs.append(s + (e-s)/2)
     return ret_bcs
 
 
