@@ -2,6 +2,7 @@
 
 import numpy
 import itfbarcode 
+import itfbarcode.linescan
 
 # Array of test barcode
 test_barcode_array = numpy.array(
@@ -50,9 +51,16 @@ test_barcode_array = numpy.array(
 
 
 if __name__ == '__main__':
-    """Use barcode reader to parse array for ITF barcode value. Changed
-       length_threshold to 1 for better parsing of an array with smaller
-       barcode lines"""
+    """
+    Use barcode reading functions to parse a vector of values for ITF barcode value.
+    """
+
+    print('Using parser.read_barcode, which returns a list of string digits:')
+    #Changed length_threshold to 1 for better parsing of an array with smaller barcode lines
     barcode = itfbarcode.read_barcode(
         test_barcode_array, length_threshold=1)
     print "Barcode is: {}".format(barcode)
+
+    print('Using linescan.scan, which returns a Barcode object:')
+    barcode = itfbarcode.linescan.scan(lambda n: True, test_barcode_array, {})
+    print("Barcode is: {}".format(barcode))
