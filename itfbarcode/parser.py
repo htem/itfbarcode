@@ -268,7 +268,7 @@ def string_to_value(bcs):
         e = s + 10
         bc = lookup_char(bcs[s:e:2])
         sc = lookup_char(bcs[s+1:e:2])
-        if bc < 0 or sc < 0:
+        if int(bc) < 0 or int(sc) < 0:
             return -1
         chars += bc + sc
     if len(chars) == 0:
