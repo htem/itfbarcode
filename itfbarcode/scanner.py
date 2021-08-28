@@ -13,9 +13,9 @@ def scan_image_y(
     if end_x is None:
         end_x = im.shape[1]
     if y is None:
-        y = im.shape[0] / 2
+        y = im.shape[0] // 2
     if scan_range is None:
-        scan_range = im.shape[0] / 2
+        scan_range = im.shape[0] // 2
     if scan_range < 1:
         raise ValueError("Invalid scan_range: %s" % scan_range)
     full = kwargs.get('full', False)
@@ -57,9 +57,9 @@ def scan_image_x(
     if end_y is None:
         end_y = im.shape[0]
     if x is None:
-        x = im.shape[1] / 2
+        x = im.shape[1] // 2
     if scan_range is None:
-        scan_range = im.shape[1] / 2
+        scan_range = im.shape[1] // 2
     if scan_range < 1:
         raise ValueError("Invalid scan_range: %s" % scan_range)
     full = kwargs.get('full', False)
