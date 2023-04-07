@@ -3,7 +3,10 @@
 
 """ distribute- and pip-enabled setup.py """
 
-import configparser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import logging
 import os
 import re
@@ -50,16 +53,16 @@ update_url = "https://raw.githubusercontent.com/braingram/simple_setup/master/se
 if (len(sys.argv) > 1) and sys.argv[1] == 'fetch':
     _overrides = {}
     _locals = locals()
-    for _k in list(_locals.keys()):
+    for _k in _locals.keys():
         if (_k[0] != '_') and not isinstance(_locals[_k], type(sys)):
             _overrides[_k] = _locals[_k]
     if len(sys.argv) > 2:
         target_fn = sys.argv[2]
     else:
         target_fn = __file__
-    print(("Fetching a new simple_setup.py to {}".format(target_fn)))
-    import urllib.request, urllib.error, urllib.parse
-    new_ss = urllib.request.urlopen(update_url)
+    print("Fetching a new simple_setup.py to {}".format(target_fn))
+    import urllib2
+    new_ss = urllib2.urlopen(update_url)
     with open(target_fn, 'w') as target:
         found_mark = False
         for l in new_ss:
@@ -174,6 +177,9 @@ def find_package_data(packages):
             if '.'.join((package, subdir)) in packages:  # skip submodules
                 logging.debug("skipping submodule %s/%s" % (package, subdir))
                 continue
+            if subdir == '__pycache__':
+                logging.debug("skipping %s/__pycache__" % package)
+                continue
             if skip_tests and (subdir == 'tests'):  # skip tests
                 logging.debug("skipping tests %s/%s" % (package, subdir))
                 continue
@@ -221,14 +227,14 @@ def detect_version():
     Try to detect the main package/module version by looking at:
         module.__version__
 
-    otherwise, return 'dev'
+    otherwise, return '0.0.0.dev'
     """
     try:
         m = __import__(package_name, fromlist=['__version__'])
-        return getattr(m, '__version__', 'dev')
+        return getattr(m, '__version__', '0.0.0.dev')
     except ImportError:
         pass
-    return 'dev'
+    return '0.0.0.dev'
 
 
 def author_info_from_pypirc():
@@ -246,7 +252,7 @@ def author_info_from_pypirc():
     author_email = None
     fn = os.path.expanduser('~/.pypirc')
     if os.path.exists(fn):
-        c = configparser.SafeConfigParser()
+        c = ConfigParser.SafeConfigParser()
         c.read(fn)
         if c.has_section('simple_setup'):
             if c.has_option('simple_setup', 'author'):
