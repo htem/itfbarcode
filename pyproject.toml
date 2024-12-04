@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itfbarcode"
+version = "0.0.0.dev"
+dependencies = [
+    "numpy",
+    "scipy",
+]
+
+[tool.setuptools]
+packages = ["itfbarcode"]
